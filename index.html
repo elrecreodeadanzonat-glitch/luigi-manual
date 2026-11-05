@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Manual · Luigi Trading Playbook</title>
+<meta name="description" content="Tu manual, paso a paso: para qué sirve cada cosa de la app y del radar.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#1b1109">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Manual de Luigi Trading Playbook">
+<meta property="og:description" content="Tu manual, paso a paso: para qué sirve cada cosa de la app y del radar.">
+<meta property="og:image" content="https://elrecreodeadanzonat-glitch.github.io/luigi-manual/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://elrecreodeadanzonat-glitch.github.io/luigi-manual/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="icono-180.png">
+<link rel="apple-touch-icon" href="icono-180.png">
+<style>
+  :root{--bg:#1b1109;--surface:#27190f;--ink:#f8ecda;--ink-2:#e0c8aa;--muted:#c09f7d;--line:#3f2b1c;--accent:#f0a070;--brass:#f2c27b;color-scheme:dark}
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0}
+  body{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 16px;background:var(--bg);color:var(--ink);font:400 17px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(900px 520px at 78% -12%,rgba(242,194,123,.16),transparent 62%),radial-gradient(760px 460px at -8% 104%,rgba(240,160,112,.13),transparent 62%)}
+  .carta{position:relative;width:min(420px,100%);display:grid;justify-items:center;gap:14px;text-align:center}
+  .carta img{width:84px;height:84px;border-radius:22px;box-shadow:0 16px 40px -14px rgba(240,160,112,.55)}
+  h1{margin:6px 0 0;font:800 26px/1.15 system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:-.01em}
+  .estado{margin:0;color:var(--ink-2);font-size:16px;max-width:34ch}
+  .barra{width:min(260px,80%);height:6px;border-radius:99px;background:rgba(248,236,218,.16);overflow:hidden}
+  .barra i{display:block;height:100%;width:0;background:var(--brass);border-radius:inherit;transition:width .2s linear}
+  button{font:700 15px/1 system-ui,-apple-system,'Segoe UI',sans-serif;padding:12px 18px;border-radius:99px;border:1.5px solid var(--muted);background:transparent;color:var(--ink);cursor:pointer}
+  button:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
+</style>
+</head>
+<body>
+<div class="carta">
+  <img src="icono-180.png" alt="" width="84" height="84">
+  <h1>Manual de Luigi Trading Playbook</h1>
+  <p class="estado" id="estado" role="status" aria-live="polite">Abriendo tu manual…</p>
+  <div class="barra" id="barra" aria-hidden="true"><i id="avance"></i></div>
+  <button id="otra" type="button" hidden>Intentar de nuevo</button>
+</div>
+<noscript><p style="text-align:center">Para abrir el manual hay que activar JavaScript en el navegador.</p></noscript>
+<script>
+// El manual está cifrado (AES-GCM). La llave viaja solo en el link, después del #: el navegador nunca manda esa parte a
+// ningún servidor, así que en este repositorio público el archivo no dice nada sin el link completo.
+(() => {
+  const $ = id => document.getElementById(id);
+  const estado = $('estado'), barra = $('barra'), avance = $('avance'), otra = $('otra');
+  let andando = false;
+  const decir = t => { estado.textContent = t; };
+  const llaveDelLink = () => {
+    const h = (location.hash || '').replace(/^#/, '').trim();
+    if (!/^[A-Za-z0-9_-]{43}$/.test(h)) return null;
+    try { const b = atob(h.replace(/-/g, '+').replace(/_/g, '/') + '='); const u = Uint8Array.from(b, c => c.charCodeAt(0)); return u.length === 32 ? u : null; } catch (e) { return null; }
+  };
+  async function bajar() {
+    const r = await fetch('manual.bin', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const total = Number(r.headers.get('content-length')) || 0;
+    if (!r.body || !r.body.getReader) { const b = new Uint8Array(await r.arrayBuffer()); avance.style.width = '100%'; return b; }
+    const lector = r.body.getReader(), partes = []; let llevo = 0;
+    for (;;) {
+      const { done, value } = await lector.read(); if (done) break;
+      partes.push(value); llevo += value.length;
+      if (total) { const p = Math.min(99, Math.floor(llevo * 100 / total)); avance.style.width = p + '%'; decir('Abriendo tu manual… ' + p + ' %'); }
+    }
+    const todo = new Uint8Array(llevo); let o = 0; for (const p of partes) { todo.set(p, o); o += p.length; }
+    return todo;
+  }
+  async function empezar() {
+    if (andando) return; andando = true;
+    otra.hidden = true; barra.hidden = false; avance.style.width = '0%'; decir('Abriendo tu manual…');
+    try {
+      const llave = llaveDelLink();
+      if (!llave) { barra.hidden = true; decir('Este link está incompleto. Pídele a quien te lo mandó el link completo, con todo lo que va después del #.'); return; }
+      if (!window.crypto || !crypto.subtle) { barra.hidden = true; decir('Este navegador no puede abrir el manual. Ábrelo en Chrome o en Safari.'); return; }
+      let bytes;
+      try { bytes = await bajar(); }
+      catch (e) { barra.hidden = true; decir('No se pudo cargar el manual. Revisa la conexión e inténtalo de nuevo.'); otra.hidden = false; return; }
+      let html;
+      try {
+        const k = await crypto.subtle.importKey('raw', llave, 'AES-GCM', false, ['decrypt']);
+        const plano = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(0, 12) }, k, bytes.subarray(12));
+        html = new TextDecoder().decode(plano);
+      } catch (e) { barra.hidden = true; decir('Este link no abre el manual. Pídele a quien te lo mandó el link completo.'); otra.hidden = false; return; }
+      document.open(); document.write(html); document.close();
+    } finally { andando = false; }
+  }
+  otra.addEventListener('click', empezar);
+  window.addEventListener('hashchange', empezar);
+  empezar();
+})();
+</script>
+</body>
+</html>

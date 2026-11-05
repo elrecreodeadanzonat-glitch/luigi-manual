@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// Manual de Luigi Trading Playbook: lo que Luis marca en el manual (me sirve, no me sirve, quiero saber más, comentarios
+// y preguntas) y las respuestas de Claude. Todo vive en salas/{sala}/mensajes, donde la sala es el SHA-256 de la llave
+// que viaja en el link (después del #). Nadie puede listar las salas: solo quien tiene el link completo llega a la suya.
+// Los mensajes no se cambian ni se borran.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function d() { return request.resource.data; }
+    function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+    function sala(s) { return s.matches('^[0-9a-f]{64}$'); }
+
+    match /salas/{s}/mensajes/{id} {
+      allow get, list: if sala(s);
+      allow create: if sala(s)
+        && id.matches('^[A-Za-z0-9_-]{16,40}$')
+        && d().keys().hasOnly(['de', 'tipo', 'seccion', 'texto', 'valor', 'respondeA', 'creado'])
+        && d().keys().hasAll(['de', 'tipo', 'seccion', 'texto', 'creado'])
+        && d().de in ['luis', 'claude']
+        && d().tipo in ['voto', 'saber_mas', 'comentario', 'pregunta', 'general', 'respuesta', 'quiz', 'progreso']
+        && str(d().seccion, 0, 40)
+        && str(d().texto, 0, 2000)
+        && (!('valor' in d()) || str(d().valor, 0, 30))
+        && (!('respondeA' in d()) || str(d().respondeA, 0, 40))
+        && d().creado == request.time;
+      allow update, delete: if false;
+    }
+
+    // la señal de «Claude está conectado»: el vigía de la conversación de Andrés la renueva cada pocos minutos
+    match /salas/{s}/estado/{doc} {
+      allow get: if sala(s);
+      allow list, delete: if false;
+      allow create, update: if sala(s) && doc == 'claude'
+        && d().keys().hasOnly(['visto']) && d().visto == request.time;
+    }
+  }
+}
